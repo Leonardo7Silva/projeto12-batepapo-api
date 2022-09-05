@@ -47,7 +47,7 @@ app.post("/participants", async (req, res)=> {
             return res.status(409).send("Este nome já está sendo usado")
         }
         await db.collection("participants").insertOne({"name": name , "lastStatus": Date.now()});
-        await db.collection("message").insertOne({
+        await db.collection("messages").insertOne({
             "from": `${name}`,
             "to": 'Todos', 
             "text": 'entra na sala...',
@@ -93,7 +93,7 @@ app.post("/messages", async(req, res) => {
             ...req.body,
             "time": `${dayjs().format("HH:mm:ss")}`
         }
-        await db.collection("message").insertOne(message);
+        await db.collection("messages").insertOne(message);
         return res.sendStatus(201)
     }catch(error){
         res.status(500).send(error.message)
@@ -103,7 +103,7 @@ app.post("/messages", async(req, res) => {
 app.get("/messages", async (req,res)=>{
     const {user} = req.headers;
     try{
-        const mensagens = await db.collection("message").find().toArray();
+        const mensagens = await db.collection("messages").find().toArray();
         const aux = mensagens.filter(message => message.to === "Todos" || message.to === user || message.from === user);
         if(req.query.limit){
             const limit = parseInt(req.query.limit);
@@ -132,12 +132,14 @@ app.post("/status", async (req, res)=> {
     }
 })
 
+//remoção de inativos
+
 setInterval(async () => {
     const participantes = await db.collection("participants").find().toArray();
     const aux = participantes.filter(value => (Date.now() - value.lastStatus) > 10000) 
     aux.map(async (value)=>{
        await db.collection("participants").deleteOne({_id: value._id})
-       await db.collection("message").insertOne({
+       await db.collection("messages").insertOne({
         "from": `${value.name}`,
         "to": 'Todos', 
         "text": 'Sai da sala...',
@@ -147,7 +149,22 @@ setInterval(async () => {
     })
 }, 15000);
 
+// Delete
 
+app.delete("/messages/:ID", async (req, res)=> {
+    const {ID} = req.params;
+    const {user} = req.headers;
+
+    try{
+        const procuraMensagem = await db.collection("messages").find({_id: ObjectId(ID)}).toArray();
+        if(procuraMensagem.length<1){return res.sendStatus(404)};
+        if(procuraMensagem[0].from !== user){return res.sendStatus(401)};
+        await db.collection("messages").deleteOne({_id: ObjectId(ID)});
+        res.sendStatus(200);
+    }catch(error){
+        return res.status(500).send(error.message); 
+    }
+})
 
 
 
