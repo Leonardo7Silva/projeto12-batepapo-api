@@ -1,7 +1,7 @@
 import express  from "express";
 import cors from "cors";
 import joi from "joi";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dayjs from "dayjs";
 
 const app = express();
@@ -110,11 +110,40 @@ app.get("/message", async (req,res)=>{
 
         return res.status(200).send(aux)
     }catch(error){
-        res.status(500).send(error.message)  
+        return res.status(500).send(error.message);  
     } 
 })
 
 //status
+
+app.post("/status", async (req, res)=> {
+    const {user} = req.headers;
+    try{
+        const participante = await db.collection("participants").find({"name": user}).toArray();
+        if(participante.length < 1){return res.sendStatus(404)};
+
+        await db.collection("participants").updateOne({"name":user},{ "$set": {"lastStatus": Date.now()}});
+        return res.sendStatus(200)
+
+    }catch(error){
+        return res.status(500).send(error.message);
+    }
+})
+
+setInterval(async () => {
+    const participantes = await db.collection("participants").find().toArray();
+    const aux = participantes.filter(value => (Date.now() - value.lastStatus) > 10000) 
+    aux.map(async (value)=>{
+       await db.collection("participants").deleteOne({_id: value._id})
+       await db.collection("message").insertOne({
+        "from": `${value.name}`,
+        "to": 'Todos', 
+        "text": 'Sai da sala...',
+        "type": 'status', 
+        "time": `${dayjs().format("HH:mm:ss")}`
+    });
+    })
+}, 15000);
 
 
 
