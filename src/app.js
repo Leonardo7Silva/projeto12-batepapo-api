@@ -69,7 +69,7 @@ app.get("/participants", async (req, res)=> {
 
 //Mensagens
 
-app.post("/message", async(req, res) => {
+app.post("/messages", async(req, res) => {
     const {type, to} = req.body;
     const {user} = req.headers;
     const validation = messageSchema.validate(req.body, {abortEarly: false});
@@ -81,9 +81,8 @@ app.post("/message", async(req, res) => {
         return  res.status(422).send("type deve ser 'message' ou 'private_message'!");
     };
     try{
-        console.log(to)
         const procuraParticipante = await db.collection("participants").find({"name": to}).toArray();
-        if(procuraParticipante.length < 1){
+        if(procuraParticipante.length < 1 && to !== "Todos"){
             return  res.status(422).send("O destinatário não está na sala!");
         }
         const message = {
@@ -98,11 +97,11 @@ app.post("/message", async(req, res) => {
     }
 })
 
-app.get("/message", async (req,res)=>{
+app.get("/messages", async (req,res)=>{
     const {user} = req.headers;
     try{
         const mensagens = await db.collection("message").find().toArray();
-        const aux = mensagens.filter(message => message.to === "Todos" || message.to === user);
+        const aux = mensagens.filter(message => message.to === "Todos" || message.to === user || message.from === user);
         if(req.query.limit){
             const limit = parseInt(req.query.limit);
             return res.status(200).send(aux.slice(limit*(-1)));
