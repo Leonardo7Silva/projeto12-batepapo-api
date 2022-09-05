@@ -166,6 +166,35 @@ app.delete("/messages/:ID", async (req, res)=> {
     }
 })
 
+//Put
+
+app.put("/messages/:ID", async(req, res) => {
+    const {type, to} = req.body;
+    const {user} = req.headers;
+    const {ID} = req.params;
+    const validation = messageSchema.validate(req.body, {abortEarly: false});
+    if(validation.error){
+        const erros = validation.error.details.map(error => error.message);
+        return res.status(422).send(erros);
+    };
+    if(type !== "message" && type !== "private_message"){
+        return  res.status(422).send("type deve ser 'message' ou 'private_message'!");
+    };
+    try{
+        const procuraParticipante = await db.collection("participants").find({"name": to}).toArray();
+        if(procuraParticipante.length < 1 && to !== "Todos"){
+            return  res.status(422).send("O destinatário não está na sala!");
+        }
+        const procuraMensagem = await db.collection("messages").find({_id: ObjectId(ID)}).toArray();
+        if(procuraMensagem.length<1){return res.sendStatus(404)};
+        if(procuraMensagem[0].from !== user){return res.sendStatus(401)};
+        await db.collection("messages").updateOne({_id: ObjectId(ID)},{ "$set": {...req.body}});
+        return res.sendStatus(201)
+    }catch(error){
+        res.status(500).send(error.message)
+    }
+})
+
 
 
 
